@@ -33,14 +33,15 @@ class ToGrid(EEGTransform):
             loc_x_list.append(loc_x)
             loc_y_list.append(loc_y)
 
-        self.width = 9
-        self.height = 9
+        self.width = 7
+        self.height = 7
 
     def __call__(self,
                  *args,
                  eeg: np.ndarray,
                  baseline: Union[np.ndarray, None] = None,
                  **kwargs) -> Dict[str, np.ndarray]:
+        
         return super().__call__(*args, eeg=eeg, baseline=baseline, **kwargs)
 
     def apply(self, eeg: np.ndarray, **kwargs) -> np.ndarray:
@@ -48,13 +49,14 @@ class ToGrid(EEGTransform):
         num_electrodes = eeg.shape[1]
         timestep = eeg.shape[2]
 
-        outputs = np.zeros((num_bands, self.height, self.width, timestep))
+        outputs = np.zeros((num_bands, self.height, self.width, timestep))  
         for band_idx in range(num_bands):
             for i, locs in enumerate(self.channel_location_dict.values()):
                 if locs is None:
                     continue
                 (loc_y, loc_x) = locs
-                outputs[band_idx, loc_y, loc_x, :] = eeg[band_idx, i, :] 
+                outputs[band_idx, loc_y, loc_x, :] = eeg[band_idx, i, :]
+
         outputs = outputs.transpose(0, 3, 1, 2)
         return outputs
 
@@ -88,7 +90,7 @@ class ToInterpolatedGrid(EEGTransform):
             loc_x_list.append(loc_x)
             loc_y_list.append(loc_y)
 
-        self.width = max(loc_x_list) + 1
+        self.width = max(loc_y_list) + 1
         self.height = max(loc_y_list) + 1
 
         self.grid_x, self.grid_y = np.mgrid[
@@ -108,6 +110,7 @@ class ToInterpolatedGrid(EEGTransform):
         return super().__call__(*args, eeg=eeg, baseline=baseline, **kwargs)
 
     def apply(self, eeg: np.ndarray, **kwargs) -> np.ndarray:
+        eeg = np.squeeze(eeg, axis=0)
         eeg = eeg.transpose(1, 0)
         outputs = []
 
@@ -118,7 +121,8 @@ class ToInterpolatedGrid(EEGTransform):
                          method='cubic',
                          fill_value=0))
         outputs = np.array(outputs)
-        return outputs
+        
+        return np.expand_dims(outputs, axis=0)
 
     def reverse(self, eeg: np.ndarray, **kwargs) -> np.ndarray:
         eeg = eeg.transpose(1, 2, 0)
